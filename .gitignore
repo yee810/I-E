@@ -1,0 +1,51 @@
+# 敏感数据与本地环境文件 — 严禁上传
+
+# 密钥 / 凭证
+*.env
+*.env.local
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.json
+config.local.json
+
+# Node 依赖与构建产物
+node_modules/
+dist/
+build/
+.cache/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 真实 / 原始敏感数据
+# 简历 / CV / 个人画像 / 病例 / 聊天记录 / 微信截图
+raw_cv/
+raw_data/
+personal_data/
+private_chats/
+medical_records/
+identified_resumes/
+
+# 任何包含真实姓名、身份证号、手机号、邮箱的数据文件
+# 脱敏后才能放入 data_samples/
+
+# 包管理器锁定文件（如不需要保留）
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
