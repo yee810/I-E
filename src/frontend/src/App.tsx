@@ -13,12 +13,30 @@ import { ProfileConfirmationScreen } from "./screens/ProfileConfirmationScreen";
 import { DashboardScreen } from "./screens/DashboardScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SidebarProvider } from "./contexts/SidebarContext";
+import AdminLayout from "./screens/admin/AdminLayout";
+import AdminDashboard from "./screens/admin/AdminDashboard";
+import AdminUsers from "./screens/admin/AdminUsers";
+import AdminJobs from "./screens/admin/AdminJobs";
+import AdminMatches from "./screens/admin/AdminMatches";
+import AdminConversations from "./screens/admin/AdminConversations";
+import AdminSystem from "./screens/admin/AdminSystem";
 
 export default function App() {
   return (
     <SidebarProvider>
       <BrowserRouter>
         <Routes>
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="jobs" element={<AdminJobs />} />
+            <Route path="matches" element={<AdminMatches />} />
+            <Route path="conversations" element={<AdminConversations />} />
+            <Route path="system" element={<AdminSystem />} />
+          </Route>
+
+          {/* User routes */}
           <Route element={<Layout />}>
             <Route path="/" element={<RegistrationScreen />} />
             <Route path="/profile-input" element={<ProfileInputScreen />} />

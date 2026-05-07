@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
-import { 
-  LogOut, 
-  Trash2, 
-  FileText, 
-  Shield, 
-  Bell, 
-  Globe, 
+import {
+  LogOut,
+  Trash2,
+  FileText,
+  Shield,
+  Bell,
+  Globe,
   HelpCircle,
   ChevronRight
 } from "lucide-react";
@@ -15,9 +16,13 @@ import { Sidebar } from "../components/Sidebar";
 
 export function SettingsScreen() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
-  const [language, setLanguage] = useState("en");
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
 
   const handleLogout = () => {
     // In a real app, clear auth state here
@@ -25,8 +30,7 @@ export function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    // In a real app, show confirmation modal and delete account
-    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+    if (window.confirm(t("settings.deleteConfirm"))) {
       navigate("/");
     }
   };
@@ -37,16 +41,16 @@ export function SettingsScreen() {
       <div className="flex-1 overflow-y-auto p-8 md:p-12">
         <div className="max-w-3xl mx-auto">
           <div className="mb-10">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Settings</h1>
-            <p className="text-gray-500 text-base">Manage your account preferences and application settings.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">{t("settings.title")}</h1>
+            <p className="text-gray-500 text-base">{t("settings.subtitle")}</p>
           </div>
 
           <div className="space-y-10">
             {/* Preferences Section */}
             <section>
-              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Preferences</h2>
+              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">{t("settings.preferences")}</h2>
               <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                
+
                 {/* Notifications */}
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-3">
@@ -54,14 +58,14 @@ export function SettingsScreen() {
                       <Bell className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">Email Notifications</div>
-                      <div className="text-sm text-gray-500">Receive job matches and updates via email</div>
+                      <div className="font-medium text-gray-900">{t("settings.emailNotifications")}</div>
+                      <div className="text-sm text-gray-500">{t("settings.emailNotificationsDesc")}</div>
                     </div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
                       checked={emailNotifications}
                       onChange={() => setEmailNotifications(!emailNotifications)}
                     />
@@ -75,14 +79,14 @@ export function SettingsScreen() {
                       <Bell className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">Push Notifications</div>
-                      <div className="text-sm text-gray-500">Get notified instantly when employers reply</div>
+                      <div className="font-medium text-gray-900">{t("settings.pushNotifications")}</div>
+                      <div className="text-sm text-gray-500">{t("settings.pushNotificationsDesc")}</div>
                     </div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
                       checked={pushNotifications}
                       onChange={() => setPushNotifications(!pushNotifications)}
                     />
@@ -97,18 +101,18 @@ export function SettingsScreen() {
                       <Globe className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">Language</div>
-                      <div className="text-sm text-gray-500">Select your preferred language</div>
+                      <div className="font-medium text-gray-900">{t("settings.language")}</div>
+                      <div className="text-sm text-gray-500">{t("settings.languageDesc")}</div>
                     </div>
                   </div>
-                  <select 
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
+                  <select
+                    value={i18n.language.startsWith("zh") ? i18n.language : "en"}
+                    onChange={(e) => handleLanguageChange(e.target.value)}
                     className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-[#5c9be6] focus:border-[#5c9be6] block p-2.5 outline-none"
                   >
-                    <option value="en">English</option>
-                    <option value="zh-CN">Mandarin (普通话)</option>
-                    <option value="zh-HK">Cantonese (粵語)</option>
+                    <option value="en">{t("settings.langEn")}</option>
+                    <option value="zh-CN">{t("settings.langZhCN")}</option>
+                    <option value="zh-HK">{t("settings.langZhHK")}</option>
                   </select>
                 </div>
               </div>
@@ -116,14 +120,14 @@ export function SettingsScreen() {
 
             {/* Support & Legal Section */}
             <section>
-              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Support & Legal</h2>
+              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">{t("settings.supportLegal")}</h2>
               <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <button className="w-full p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors text-left">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600">
                       <HelpCircle className="w-5 h-5" />
                     </div>
-                    <div className="font-medium text-gray-900">Help & Support</div>
+                    <div className="font-medium text-gray-900">{t("settings.helpSupport")}</div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
@@ -132,7 +136,7 @@ export function SettingsScreen() {
                     <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600">
                       <FileText className="w-5 h-5" />
                     </div>
-                    <div className="font-medium text-gray-900">Terms of Service</div>
+                    <div className="font-medium text-gray-900">{t("settings.termsOfService")}</div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
@@ -141,7 +145,7 @@ export function SettingsScreen() {
                     <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600">
                       <Shield className="w-5 h-5" />
                     </div>
-                    <div className="font-medium text-gray-900">Privacy Policy</div>
+                    <div className="font-medium text-gray-900">{t("settings.privacyPolicy")}</div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </button>
@@ -150,18 +154,18 @@ export function SettingsScreen() {
 
             {/* Account Actions Section */}
             <section>
-              <h2 className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-4">Account Actions</h2>
+              <h2 className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-4">{t("settings.accountActions")}</h2>
               <div className="bg-white border border-red-100 rounded-2xl overflow-hidden shadow-sm">
-                <button 
+                <button
                   onClick={handleLogout}
                   className="w-full p-4 border-b border-red-50 flex items-center gap-3 hover:bg-red-50 transition-colors text-left"
                 >
                   <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                     <LogOut className="w-5 h-5" />
                   </div>
-                  <div className="font-medium text-red-600">Log out</div>
+                  <div className="font-medium text-red-600">{t("settings.logout")}</div>
                 </button>
-                <button 
+                <button
                   onClick={handleDeleteAccount}
                   className="w-full p-4 flex items-center gap-3 hover:bg-red-50 transition-colors text-left"
                 >
@@ -169,7 +173,7 @@ export function SettingsScreen() {
                     <Trash2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-red-600">Delete account</div>
+                    <div className="font-medium text-red-600">{t("settings.deleteAccount")}</div>
                   </div>
                 </button>
               </div>

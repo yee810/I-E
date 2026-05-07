@@ -1,39 +1,52 @@
 import { Router } from "express";
 import db from "../db/connection.ts";
-import { GoogleGenAI } from "@google/genai";
+import { openai } from "../services/openaiClient.ts";
 import { ENV } from "../config/env.ts";
+import { AppError } from "../utils/AppError.ts";
 
 const router = Router();
-const ai = ENV.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY }) : null;
 
 router.post("/", async (req, res, next) => {
   try {
     const { user_id, message } = req.body;
     if (!user_id || !message) {
-      const err = new Error("Missing user_id or message") as any;
-      err.statusCode = 400;
-      throw err;
+      throw new AppError("auth.missing_credentials", 400);
     }
 
     const history = db.prepare(
       "SELECT role, content FROM conversations WHERE user_id = ? ORDER BY created_at DESC LIMIT 20"
     ).all(user_id) as any[];
-    const context = history.map(h => ({ role: h.role, content: h.content }));
 
-    const systemPrompt = `You are Jobro, an AI career assistant. Help the user refine their job preferences through natural conversation. Be concise and friendly.`;
+    // Filter out fallback/error messages so AI doesn't get confused
+    const context = history
+      .filter(h => !h.content.startsWith("[AI") && !h.content.startsWith("[AI temporarily"))
+      .map(h => ({ role: h.role, content: h.content }));
+
+    const systemPrompt = `You are Jobro, an AI career assistant. Help the user refine their job preferences through natural conversation. Be concise and friendly. Never claim you are offline or unavailable — you are currently active and ready to help.`;
 
     let reply = "";
-    if (ai) {
-      const contents = [
-        { role: "user", parts: [{ text: systemPrompt }] },
-        ...context.map(c => ({ role: c.role as "user" | "model", parts: [{ text: c.content }] })),
-        { role: "user", parts: [{ text: message }] },
-      ];
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-thinking-exp",
-        contents,
-      });
-      reply = response.text || "I'm sorry, I couldn't process that.";
+    if (openai) {
+      try {
+        const messages = [
+          { role: "system" as const, content: systemPrompt },
+          ...context.map(c => ({ role: c.role as "user" | "assistant", content: c.content })),
+          { role: "user" as const, content: message },
+        ];
+        const response = await openai.chat.completions.create({
+          model: ENV.OPENAI_MODEL,
+          messages,
+        });
+        const raw = response.choices[0]?.message?.content || "I'm sorry, I couldn't process that.";
+        // Strip <think>...</think> blocks and unclosed <think> blocks from reasoning models
+        reply = raw
+          .replace(/<think>[\s\S]*?<\/think>/g, "")
+          .replace(/<think>[\s\S]*$/g, "")
+          .replace(/^\s*<\/think>\s*/gm, "")
+          .trim() || raw;
+      } catch (aiErr: any) {
+        console.error("[Chat] AI error:", aiErr.message || aiErr);
+        reply = `[AI temporarily unavailable] ${aiErr.message || "Please try again later."}`;
+      }
     } else {
       reply = "[AI is offline] Understood. I'll note your preference when AI is back.";
     }

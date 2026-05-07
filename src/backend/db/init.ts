@@ -1,5 +1,12 @@
 import db from "./connection.ts";
 
+function safeAddColumn(table: string, column: string, definition: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
+  if (!cols.find((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 export function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -87,7 +94,37 @@ export function initSchema() {
       payload TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id INTEGER,
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (admin_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS system_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      description TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_by INTEGER,
+      FOREIGN KEY (updated_by) REFERENCES users(id)
+    );
   `);
+
+  safeAddColumn("users", "role", "TEXT NOT NULL DEFAULT 'user'");
+
+  const seedConfig = db.prepare(
+    "INSERT OR IGNORE INTO system_config (key, value, description) VALUES (?, ?, ?)"
+  );
+  seedConfig.run("matching_threshold", "0.5", "Minimum match score to show");
+  seedConfig.run("max_daily_matches", "50", "Max matches per user per day");
+  seedConfig.run("ai_chat_enabled", "true", "Enable AI chat feature");
+  seedConfig.run("maintenance_mode", "false", "Put system in maintenance mode");
 
   console.log("[DB] Schema initialized.");
 }

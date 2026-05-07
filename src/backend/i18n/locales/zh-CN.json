@@ -1,0 +1,43 @@
+{
+  "auth": {
+    "missing_token": "缺少认证令牌",
+    "invalid_token": "无效令牌",
+    "insufficient_role": "权限不足",
+    "user_not_found": "用户未找到",
+    "invalid_password": "密码错误",
+    "missing_credentials": "缺少邮箱或密码",
+    "no_user_context": "未提供用户上下文"
+  },
+  "user": {
+    "created": "用户已创建",
+    "updated": "用户已更新",
+    "deleted": "用户已删除",
+    "not_found": "用户未找到",
+    "email_required": "邮箱为必填项",
+    "invalid_role": "无效的角色值"
+  },
+  "job": {
+    "created": "职位已创建",
+    "updated": "职位已更新",
+    "deleted": "职位已删除",
+    "not_found": "职位未找到",
+    "status_updated": "职位状态已更新",
+    "title_required": "职位名称为必填项",
+    "company_required": "公司名称为必填项",
+    "invalid_status": "无效的职位状态"
+  },
+  "match": {
+    "not_found": "匹配未找到",
+    "status_updated": "匹配状态已更新",
+    "bulk_updated": "{count} 条匹配已更新",
+    "invalid_status": "无效的匹配状态",
+    "ids_required": "匹配ID和状态为必填项"
+  },
+  "config": {
+    "updated": "配置已更新",
+    "not_found": "配置项未找到"
+  },
+  "internal": {
+    "server_error": "服务器内部错误"
+  }
+}

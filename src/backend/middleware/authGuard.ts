@@ -1,19 +1,51 @@
 import { Request, Response, NextFunction } from "express";
 import { ENV } from "../config/env.ts";
+import db from "../db/connection.ts";
+import crypto from "node:crypto";
+import { AppError } from "../utils/AppError.ts";
 
-export function authGuard(req: Request, res: Response, next: NextFunction) {
+function generateToken(userId: number) {
+  const time = Math.floor(Date.now() / 1000 / 3600);
+  return crypto
+    .createHmac("sha256", ENV.JWT_SECRET)
+    .update(`${userId}:${time}`)
+    .digest("hex");
+}
+
+export function authGuard(req: Request, _res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Unauthorized" });
+    next(new AppError("auth.missing_token", 401));
     return;
   }
 
   const token = auth.replace("Bearer ", "");
-  // MVP no real JWT — simple bearer token check. See auth.ts for token generation.
   if (!token) {
-    res.status(401).json({ error: "Invalid token" });
+    next(new AppError("auth.invalid_token", 401));
     return;
   }
-  (req as any).token = token;
+
+  const userId =
+    req.headers["x-user-id"] ?? req.query.user_id ?? req.body?.user_id;
+  if (!userId) {
+    next(new AppError("auth.no_user_context", 401));
+    return;
+  }
+
+  const expected = generateToken(Number(userId));
+  if (token !== expected) {
+    next(new AppError("auth.invalid_token", 401));
+    return;
+  }
+
+  const user = db
+    .prepare("SELECT id, email, role FROM users WHERE id = ?")
+    .get(userId) as any;
+  if (!user) {
+    next(new AppError("auth.user_not_found", 401));
+    return;
+  }
+
+  (req as any).user = user;
   next();
 }

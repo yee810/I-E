@@ -4,7 +4,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ENV } from "./config/env.ts";
 import { initSchema } from "./db/init.ts";
+import { seedAdmin } from "./db/seed-admin.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
+import { localeDetector } from "./middleware/localeDetector.ts";
 
 import authRoutes from "./routes/auth.ts";
 import profileRoutes from "./routes/profiles.ts";
@@ -14,8 +16,10 @@ import matchingRoutes from "./routes/matching.ts";
 import feedbackRoutes from "./routes/feedback.ts";
 import chatRoutes from "./routes/chat.ts";
 import eventRoutes from "./routes/events.ts";
+import adminRoutes from "./routes/admin/index.ts";
 
 initSchema();
+seedAdmin();
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +27,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(cors({ origin: ENV.FRONTEND_URL }));
 app.use(express.json());
+app.use(localeDetector);
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ ok: true, env: ENV.NODE_ENV });
@@ -36,6 +41,7 @@ app.use("/api/matching", matchingRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Serve frontend static files from built dist/ (relative to backend dir -> ../frontend/dist)
 const frontendDist = path.join(__dirname, "../frontend/dist");
@@ -48,4 +54,5 @@ app.use(errorHandler as any);
 
 app.listen(ENV.PORT, () => {
   console.log(`[Server] Jobro backend running on http://localhost:${ENV.PORT}`);
+  console.log(`[Config] AI: ${ENV.OPENAI_API_KEY ? `${ENV.OPENAI_MODEL} @ ${ENV.OPENAI_BASE_URL || "openai"}` : "disabled"}`);
 });

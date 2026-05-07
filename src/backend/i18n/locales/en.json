@@ -1,0 +1,43 @@
+{
+  "auth": {
+    "missing_token": "Missing authentication token",
+    "invalid_token": "Invalid token",
+    "insufficient_role": "Insufficient permissions",
+    "user_not_found": "User not found",
+    "invalid_password": "Invalid password",
+    "missing_credentials": "Missing email or password",
+    "no_user_context": "No user context provided"
+  },
+  "user": {
+    "created": "User created",
+    "updated": "User updated",
+    "deleted": "User deleted",
+    "not_found": "User not found",
+    "email_required": "Email is required",
+    "invalid_role": "Invalid role value"
+  },
+  "job": {
+    "created": "Job created",
+    "updated": "Job updated",
+    "deleted": "Job deleted",
+    "not_found": "Job not found",
+    "status_updated": "Job status updated",
+    "title_required": "Job title is required",
+    "company_required": "Company name is required",
+    "invalid_status": "Invalid job status"
+  },
+  "match": {
+    "not_found": "Match not found",
+    "status_updated": "Match status updated",
+    "bulk_updated": "{count} matches updated",
+    "invalid_status": "Invalid match status",
+    "ids_required": "Match IDs and status are required"
+  },
+  "config": {
+    "updated": "Configuration updated",
+    "not_found": "Configuration key not found"
+  },
+  "internal": {
+    "server_error": "Internal server error"
+  }
+}

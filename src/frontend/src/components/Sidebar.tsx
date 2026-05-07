@@ -1,12 +1,15 @@
-import { Briefcase, User, MessageSquare, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Briefcase, User, MessageSquare, PanelLeftClose, PanelLeft, Shield } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useSidebar } from "../contexts/SidebarContext";
 import { Logo } from "./Logo";
 
 export function Sidebar() {
   const location = useLocation();
   const { isSidebarOpen, toggleSidebar } = useSidebar();
-  
+  const { t } = useTranslation();
+  const role = localStorage.getItem("role");
+
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -43,33 +46,44 @@ export function Sidebar() {
           </div>
           
           <nav className="flex-1 px-4 py-2 space-y-1 mt-2">
-            <Link 
+            <Link
               to="/chat"
               className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors text-sm font-medium ${
                 isActive('/chat') ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              Chat
+              {t("nav.chat")}
             </Link>
-            <Link 
+            <Link
               to="/dashboard"
               className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors text-sm font-medium ${
                 isActive('/dashboard') ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <Briefcase className="w-4 h-4" />
-              Applied
+              {t("nav.applied")}
             </Link>
-            <Link 
+            <Link
               to="/profile-confirmation"
               className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors text-sm font-medium ${
                 isActive('/profile-confirmation') ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <User className="w-4 h-4" />
-              Profile
+              {t("nav.profile")}
             </Link>
+            {role === "admin" && (
+              <Link
+                to="/admin"
+                className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors text-sm font-medium ${
+                  location.pathname.startsWith('/admin') ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                {t("nav.admin")}
+              </Link>
+            )}
           </nav>
 
           <div className="p-4 border-t border-gray-200 mt-auto">
@@ -84,7 +98,7 @@ export function Sidebar() {
               </div>
               <div className="flex flex-col items-start truncate">
                 <span className="truncate w-full text-left">Alex</span>
-                <span className="text-xs text-gray-500 font-normal">Settings</span>
+                <span className="text-xs text-gray-500 font-normal">{t("nav.settings")}</span>
               </div>
             </Link>
           </div>

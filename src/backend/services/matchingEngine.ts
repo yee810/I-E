@@ -1,8 +1,6 @@
 import db from "../db/connection.ts";
-import { GoogleGenAI } from "@google/genai";
+import { openai } from "./openaiClient.ts";
 import { ENV } from "../config/env.ts";
-
-const ai = ENV.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY }) : null;
 
 export interface MatchResult {
   jobId: number;
@@ -49,7 +47,7 @@ export async function runMatching(userId: number, options?: { limit?: number; fo
   }).sort((a, b) => b.overlap - a.overlap).slice(0, Math.min(limit * 3, filtered.length));
 
   // 3. LLM rerank + rationale (top limit * 3 -> limit)
-  if (ai && scored.length > 0) {
+  if (openai && scored.length > 0) {
     const candidateDescriptions = scored.map(s => `Job ID ${s.job.id}: ${s.job.title} at ${s.job.company} in ${s.job.location}. ${s.job.description ?? ""}`).join("\n");
     const prompt = `You are a career matching engine. Given a candidate profile and a list of job descriptions, rerank the jobs by fit and provide a one-sentence rationale for each.
 Candidate profile: ${userText}
@@ -61,11 +59,11 @@ Return ONLY a JSON array like:
 Top ${limit} jobs only.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-thinking-exp",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      const response = await openai.chat.completions.create({
+        model: ENV.OPENAI_MODEL,
+        messages: [{ role: "user", content: prompt }],
       });
-      const text = response.text || "";
+      const text = response.choices[0]?.message?.content || "";
       const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(clean) as MatchResult[];
       const valid = parsed.filter(p => typeof p.jobId === "number" && typeof p.score === "number" && typeof p.reason === "string");

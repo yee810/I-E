@@ -1,8 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
+import { openai } from "./openaiClient.ts";
 import { ENV } from "../config/env.ts";
 import { parsePdf } from "../utils/pdf.ts";
-
-const ai = ENV.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY }) : null;
 
 export interface ParsedCV {
   name: string;
@@ -41,16 +39,16 @@ export async function parseCVFromBuffer(buffer: Buffer): Promise<ParsedCV> {
     rawText = buffer.toString("utf-8");
   }
 
-  if (!ai) {
+  if (!openai) {
     return fallbackParse(rawText);
   }
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash-thinking-exp",
-    contents: [{ role: "user", parts: [{ text: parsePrompt + "\n\n" + rawText }] }],
+  const response = await openai.chat.completions.create({
+    model: ENV.OPENAI_MODEL,
+    messages: [{ role: "user", content: parsePrompt + "\n\n" + rawText }],
   });
 
-  const text = response.text || "";
+  const text = response.choices[0]?.message?.content || "";
   let parsed: ParsedCV | undefined;
   try {
     const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();

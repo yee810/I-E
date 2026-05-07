@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
 import { Send, Phone, MessageSquare, Briefcase, Menu, MapPin, CheckCircle2, Edit3, X, Clock } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
@@ -34,6 +35,7 @@ type Message = {
 export function ChatScreen() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
@@ -44,7 +46,7 @@ export function ChatScreen() {
     {
       id: "1",
       role: "assistant",
-      content: "Hey I'm your buddy Jobro, and based on your CV I found the following jobs for you...",
+      content: t("chat.greeting"),
       isJobMatch: true,
       jobsData: [],
     },
@@ -64,7 +66,7 @@ export function ChatScreen() {
             {
               id: Date.now().toString(),
               role: "assistant",
-              content: "Great chatting with you! Based on our conversation, I've summarized your profile. Please review it below:",
+              content: t("chat.profileSummaryIntro"),
               isProfileSummary: true,
             },
           ];
@@ -88,7 +90,7 @@ export function ChatScreen() {
     if (!userId) {
       setMessages((prev) => [
         ...prev,
-        { id: Date.now().toString(), role: "assistant", content: "Please register or log in first." },
+        { id: Date.now().toString(), role: "assistant", content: t("chat.notLoggedIn") },
       ]);
       return;
     }
@@ -105,7 +107,7 @@ export function ChatScreen() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: data.reply || "I'm processing that...",
+          content: data.reply || t("chat.processing"),
         },
       ]);
     } catch (error) {
@@ -115,7 +117,7 @@ export function ChatScreen() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: t("chat.errorGeneric"),
         },
       ]);
     } finally {
@@ -127,7 +129,7 @@ export function ChatScreen() {
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: "Looks good! Let's start matching.",
+      content: t("chat.profileConfirmed"),
     };
     setMessages((prev) => [...prev, newUserMsg]);
 
@@ -137,20 +139,19 @@ export function ChatScreen() {
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "Perfect! I've saved your profile. You can always view or edit it in the 'My Profile' tab.",
+          content: t("chat.profileSaved"),
         },
       ]);
     }, 1000);
   };
 
   const handlePassJob = (jobId: string) => {
-    // In a real app, send feedback via API here
     setMessages((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
         role: "user",
-        content: `I'm not interested in that role.`,
+        content: t("chat.notInterested"),
       },
     ]);
 
@@ -160,14 +161,14 @@ export function ChatScreen() {
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "Ok, I will remember this preference.",
+          content: t("chat.notInterestedReply"),
         },
       ]);
     }, 1000);
   };
 
   const handleApplyJob = (jobId: string) => {
-    alert(`Redirecting to third party site to apply...`);
+    alert(t("chat.redirectApply"));
   };
 
   return (
@@ -215,6 +216,10 @@ export function ChatScreen() {
                       <div>
                         <p className="text-[15px] text-gray-900 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       </div>
+                    ) : msg.isProfileSummary ? (
+                      <div>
+                        <p className="text-[15px] text-gray-900 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      </div>
                     ) : (
                       msg.content
                     )}
@@ -229,17 +234,17 @@ export function ChatScreen() {
                         </div>
                         <div>
                           <h4 className="font-bold text-gray-900 text-xl">Alex Chen</h4>
-                          <p className="text-gray-500 text-base">Product Manager, Strategy Consultant</p>
+                          <p className="text-gray-500 text-base">{t("chat.targetIndustries")}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Target Industries</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("chat.targetIndustries")}</p>
                           <p className="text-sm text-gray-900 font-medium">FinTech, Management Consulting</p>
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Key Strengths</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("chat.keyStrengths")}</p>
                           <div className="flex flex-wrap gap-2">
                             <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-semibold">High Ambition</span>
                             <span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-semibold">Interpersonal Sensitivity</span>
@@ -248,7 +253,7 @@ export function ChatScreen() {
                       </div>
 
                       <div className="mb-6">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Work Experience</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.workExperience")}</p>
                         <div className="space-y-4">
                           <div className="relative pl-4 border-l-2 border-gray-200">
                             <div className="absolute w-2.5 h-2.5 bg-[#5c9be6] rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
@@ -266,7 +271,7 @@ export function ChatScreen() {
                       </div>
 
                       <div className="mb-6">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Education</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.education")}</p>
                         <div className="relative pl-4 border-l-2 border-gray-200">
                           <div className="absolute w-2.5 h-2.5 bg-[#5c9be6] rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
                           <h5 className="text-sm font-bold text-gray-900">The University of Hong Kong (HKU)</h5>
@@ -281,14 +286,14 @@ export function ChatScreen() {
                           className="flex-1 bg-[#113a7a] text-white text-sm font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors flex items-center justify-center gap-2"
                         >
                           <CheckCircle2 className="w-5 h-5" />
-                          Looks Good
+                          {t("chat.looksGood")}
                         </button>
                         <button
                           onClick={() => navigate("/profile-confirmation")}
                           className="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors text-sm font-semibold flex items-center gap-2"
                         >
                           <Edit3 className="w-5 h-5" />
-                          Edit
+                          {t("common.edit")}
                         </button>
                       </div>
                     </div>
@@ -308,7 +313,7 @@ export function ChatScreen() {
                               <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-2">{job.title}</h4>
                               {job.matchPercentage && (
                                 <span className="bg-[#5c9be6]/20 text-[#113a7a] text-xs font-bold px-2 py-1 rounded-full shrink-0 ml-2">
-                                  High Match
+                                  {t("chat.highMatch")}
                                 </span>
                               )}
                             </div>
@@ -325,7 +330,7 @@ export function ChatScreen() {
                                 }}
                                 className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-semibold py-2 rounded-full hover:bg-gray-50 transition-colors"
                               >
-                                Not interested
+                                {t("chat.notInterested")}
                               </button>
                               <button
                                 onClick={(e) => {
@@ -334,7 +339,7 @@ export function ChatScreen() {
                                 }}
                                 className="flex-1 bg-[#113a7a] text-white text-sm font-semibold py-2 rounded-full hover:bg-[#0d2b5c] transition-colors"
                               >
-                                Apply
+                                {t("common.apply")}
                               </button>
                             </div>
                           </div>
@@ -379,7 +384,7 @@ export function ChatScreen() {
                     handleSend();
                   }
                 }}
-                placeholder="Message Jobro..."
+                placeholder={t("chat.placeholder")}
                 className="w-full max-h-48 min-h-[44px] bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-[15px] leading-relaxed"
                 rows={1}
               />
@@ -392,7 +397,7 @@ export function ChatScreen() {
               </button>
             </div>
             <div className="text-center mt-3">
-              <p className="text-xs text-gray-400">Jobro can make mistakes. Consider verifying important information.</p>
+              <p className="text-xs text-gray-400">{t("chat.disclaimer")}</p>
             </div>
           </div>
         </div>
@@ -402,7 +407,7 @@ export function ChatScreen() {
       {selectedJob && (
         <aside className="w-full md:w-96 bg-white border-l border-gray-200 flex flex-col h-full shrink-0 overflow-y-auto shadow-xl z-20 absolute md:relative right-0">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-            <h2 className="text-xl font-bold">Job Details</h2>
+            <h2 className="text-xl font-bold">{t("chat.jobDetails")}</h2>
             <button onClick={() => setSelectedJob(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -417,12 +422,12 @@ export function ChatScreen() {
                 </span>
                 {selectedJob.time && (
                   <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" /> Posted: {selectedJob.time}
+                    <Clock className="w-4 h-4" /> {t("common.time")}: {selectedJob.time}
                   </span>
                 )}
                 {selectedJob.deadline && (
                   <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" /> Deadline: {selectedJob.deadline}
+                    <Clock className="w-4 h-4" /> {t("jobs.deadline")}: {selectedJob.deadline}
                   </span>
                 )}
               </div>
@@ -430,13 +435,13 @@ export function ChatScreen() {
 
             {selectedJob.salary && (
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Salary</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{t("chat.salary")}</p>
                 <p className="font-semibold text-gray-900">{selectedJob.salary}</p>
               </div>
             )}
 
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Personalized Rationale</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{t("chat.personalizedRationale")}</h3>
               <div className="bg-[#5c9be6]/5 p-4 rounded-xl border border-[#5c9be6]/20">
                 <p className="text-sm text-[#113a7a] leading-relaxed">{selectedJob.matchReason}</p>
               </div>
@@ -444,7 +449,7 @@ export function ChatScreen() {
 
             {selectedJob.responsibilities && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Responsibilities</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{t("chat.responsibilities")}</h3>
                 <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
                   {selectedJob.responsibilities.map((r, i) => (
                     <li key={i}>{r}</li>
@@ -455,7 +460,7 @@ export function ChatScreen() {
 
             {selectedJob.requirements && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Requirements</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{t("chat.requirements")}</h3>
                 <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
                   {selectedJob.requirements.map((r, i) => (
                     <li key={i}>{r}</li>
@@ -466,18 +471,18 @@ export function ChatScreen() {
 
             {selectedJob.applyMethod && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3">How to Apply</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{t("chat.howToApply")}</h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                   {selectedJob.applyMethod.includes("@") ? (
                     <p className="text-sm text-gray-700">
-                      Email your resume to:{" "}
+                      {t("chat.emailResumeTo")}{" "}
                       <a href={`mailto:${selectedJob.applyMethod}`} className="text-[#5c9be6] hover:underline font-medium">
                         {selectedJob.applyMethod}
                       </a>
                     </p>
                   ) : (
                     <p className="text-sm text-gray-700">
-                      Apply via website:{" "}
+                      {t("chat.applyViaWebsite")}{" "}
                       <a href={selectedJob.applyMethod} target="_blank" rel="noopener noreferrer" className="text-[#5c9be6] hover:underline font-medium">
                         {selectedJob.applyMethod}
                       </a>
@@ -495,7 +500,7 @@ export function ChatScreen() {
                 }}
                 className="flex-1 bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                Not interested
+                {t("chat.notInterested")}
               </button>
               <button
                 onClick={() => {
@@ -504,7 +509,7 @@ export function ChatScreen() {
                 }}
                 className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors"
               >
-                Apply Now
+                {t("common.applyNow")}
               </button>
             </div>
           </div>
