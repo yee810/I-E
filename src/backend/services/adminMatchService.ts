@@ -1,6 +1,8 @@
 import db from "../db/connection.ts";
 import { parsePagination, PaginationOptions } from "../utils/pagination.ts";
 
+const MATCH_SORT_COLUMNS = ["id", "match_score", "status", "created_at"];
+
 export function listMatches(
   options: PaginationOptions & {
     status?: string;
@@ -9,8 +11,10 @@ export function listMatches(
     minScore?: number;
   }
 ) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: MATCH_SORT_COLUMNS,
+  });
 
   const conditions: string[] = [];
   const params: any[] = [];

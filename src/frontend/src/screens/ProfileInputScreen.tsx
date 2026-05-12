@@ -12,6 +12,7 @@ export function ProfileInputScreen() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [parseResult, setParseResult] = useState<any>(null);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -33,19 +34,19 @@ export function ProfileInputScreen() {
   };
 
   const handleNext = async () => {
-    const userId = Number(localStorage.getItem("userId"));
-    if (!userId) {
-      setError(t("profile.sessionExpired"));
-      return;
-    }
     if (!file) {
       navigate("/preferences");
       return;
     }
     try {
       setUploading(true);
-      await api.uploadResume(userId, file);
-      navigate("/preferences");
+      const res = await api.uploadResume(file);
+      setParseResult(res);
+      const prefills: Record<string, any> = {};
+      if (res.parsed?.targetRoles?.length > 0) prefills.targetRoles = res.parsed.targetRoles;
+      if (res.parsed?.targetIndustry) prefills.targetIndustry = res.parsed.targetIndustry;
+      if (res.parsed?.expectedSalary) prefills.expectedSalary = res.parsed.expectedSalary;
+      setTimeout(() => navigate("/preferences", { state: { prefills } }), 2000);
     } catch (e: any) {
       setError(e.message || t("profile.uploadFailed"));
     } finally {
@@ -136,6 +137,37 @@ export function ProfileInputScreen() {
 
         {error && (
           <p className="text-sm text-red-500">{error}</p>
+        )}
+
+        {parseResult && (
+          <div className={`border rounded-xl p-4 space-y-2 ${parseResult.error ? "bg-yellow-50 border-yellow-200" : "bg-green-50 border-green-200"}`}>
+            <p className={`text-sm font-semibold ${parseResult.error ? "text-yellow-800" : "text-green-800"}`}>
+              {parseResult.error ? `${t("profile.parseSuccess")} (${parseResult.method === "fallback" ? "关键词提取" : "AI"})` : t("profile.parseSuccess")}
+            </p>
+            {parseResult.error && <p className="text-xs text-yellow-700">{parseResult.error}</p>}
+            {parseResult.parsed?.name && parseResult.parsed.name !== "Unknown" && (
+              <p className="text-sm text-gray-700">{t("profile.parsedName")}: {parseResult.parsed.name}</p>
+            )}
+            {parseResult.parsed?.skills?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {parseResult.parsed.skills.slice(0, 8).map((s: string, i: number) => (
+                  <span key={i} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-md">{s}</span>
+                ))}
+                {parseResult.parsed.skills.length > 8 && <span className="text-xs text-green-600">+{parseResult.parsed.skills.length - 8}</span>}
+              </div>
+            )}
+            {parseResult.parsed?.targetRoles?.length > 0 && (
+              <p className="text-xs text-gray-600">{t("profile.parsedTargetRoles")}: {parseResult.parsed.targetRoles.join("、")}</p>
+            )}
+            {parseResult.parsed?.targetIndustry && (
+              <p className="text-xs text-gray-600">{t("profile.parsedTargetIndustry")}: {parseResult.parsed.targetIndustry}</p>
+            )}
+            {parseResult.parsed?.expectedSalary && (
+              <p className="text-xs text-gray-600">{t("profile.parsedSalary")}: {parseResult.parsed.expectedSalary.toLocaleString()} CNY/month</p>
+            )}
+            {parseResult.parsed?.education?.length > 0 && <p className="text-xs text-gray-600">{parseResult.parsed.education.length} education entries</p>}
+            {parseResult.parsed?.experience?.length > 0 && <p className="text-xs text-gray-600">{parseResult.parsed.experience.length} experience entries</p>}
+          </div>
         )}
       </div>
     </OnboardingLayout>

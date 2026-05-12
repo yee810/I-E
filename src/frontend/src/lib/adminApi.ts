@@ -33,7 +33,7 @@ export const adminApi = {
 
   // Users
   listUsers: (p?: { page?: number; search?: string }) =>
-    adminReq("GET", "/users", undefined, p ? Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) : undefined),
+    adminReq("GET", "/users", undefined, p ? Object.fromEntries(Object.entries(p).filter(([_, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])) : undefined),
   getUser: (id: number) => adminReq("GET", `/users/${id}`),
   updateUser: (id: number, data: any) => adminReq("PUT", `/users/${id}`, data),
   deleteUser: (id: number) => adminReq("DELETE", `/users/${id}`),
@@ -41,6 +41,7 @@ export const adminApi = {
   getUserPreferences: (id: number) => adminReq("GET", `/users/${id}/preferences`),
   getUserConversations: (id: number) => adminReq("GET", `/users/${id}/conversations`),
   getUserMatches: (id: number) => adminReq("GET", `/users/${id}/matches`),
+  resetUserPassword: (id: number) => adminReq("POST", `/users/${id}/reset-password`),
 
   // Jobs
   listJobs: (p?: { page?: number; status?: string; search?: string }) =>

@@ -1,95 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Edit3, Briefcase, GraduationCap, MapPin, Mail, Phone, Check, X, Award, Star, Microscope, BookOpen, Info } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
+import { api } from "../lib/api";
 
 export function ProfileConfirmationScreen() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  
+  const [loading, setLoading] = useState(true);
+
   const [profile, setProfile] = useState({
-    name: "Alex Chen",
-    location: "Hong Kong",
-    email: "alex.chen@example.com",
-    phone: "+852 1234 5678",
-    targetRoles: "Product Manager, Strategy Consultant",
-    targetIndustries: "FinTech, Management Consulting",
-    availability: "4 days/week, 6 months",
-    salaryExpectation: "25,000 HKD/month",
-    companySize: "MNC (1000+)",
-    preferences: "Prefers small, agile teams. Highly values mentorship and clear progression paths. Willing to work long hours if the work is impactful.",
-    experiences: [
-      {
-        id: 1,
-        title: "Business Analyst Intern",
-        company: "McKinsey & Company",
-        date: "Jun 2024 - Aug 2024",
-        location: "Hong Kong",
-        bullets: [
-          "Conducted market sizing and competitor analysis for a leading APAC retail bank.",
-          "Developed financial models to evaluate potential M&A targets, presenting findings to partners."
-        ]
-      },
-      {
-        id: 2,
-        title: "Product Intern",
-        company: "Tencent",
-        date: "May 2023 - Aug 2023",
-        location: "Shenzhen, China",
-        bullets: [
-          "Assisted in the product lifecycle management of a new feature in WeChat Pay.",
-          "Analyzed user behavior data using SQL to identify drop-off points in the onboarding funnel."
-        ]
-      },
-      {
-        id: 3,
-        title: "Undergraduate Researcher",
-        company: "HKU FinTech Lab",
-        date: "Sep 2023 - Present",
-        location: "Hong Kong",
-        bullets: [
-          "Researched the impact of CBDCs on cross-border payment efficiency.",
-          "Co-authored a paper accepted at the International Conference on Financial Innovation."
-        ]
-      }
-    ],
-    education: [
-      {
-        id: 1,
-        school: "The University of Hong Kong (HKU)",
-        degree: "Bachelor of Business Administration (BBA)",
-        date: "Sep 2021 - Present • Expected Graduation: May 2025",
-        details: "CGPA: 3.8/4.0 • Dean's List 2022, 2023"
-      }
-    ],
-    publications: [
-      {
-        id: 1,
-        title: "The Future of Cross-Border Payments: A CBDC Perspective",
-        authors: "Chen, A., Wong, B., & Smith, J.",
-        venue: "International Conference on Financial Innovation",
-        date: "2024"
-      }
-    ],
-    extracurriculars: [
-      {
-        id: 1,
-        title: "President",
-        organization: "HKU Consulting Club",
-        date: "Sep 2023 - Present",
-        bullets: [
-          "Led a team of 20+ members to organize case competitions and networking events.",
-          "Secured sponsorships from top-tier consulting firms."
-        ]
-      }
-    ],
-    skills: "Python, SQL, Tableau, Figma, Financial Modeling, Market Research",
-    miscellaneous: {
-      honors: "HKU Foundation Scholarship (2021), National Economics Olympiad Gold Medalist (2020)",
-      interests: "Marathon Running, Behavioral Economics, Specialty Coffee"
-    }
+    name: "",
+    location: "",
+    email: "",
+    phone: "",
+    targetRoles: "",
+    targetIndustries: "",
+    availability: "",
+    salaryExpectation: "",
+    companySize: "",
+    preferences: "",
+    experiences: [] as any[],
+    education: [] as any[],
+    publications: [] as any[],
+    extracurriculars: [] as any[],
+    skills: "",
+    miscellaneous: { honors: "", interests: "" },
   });
+
+  useEffect(() => {
+    Promise.all([
+      api.getProfile().catch(() => ({ profile: null })),
+      api.getPreferences().catch(() => ({ preference: null })),
+    ]).then(([profileRes, prefRes]) => {
+      const p = profileRes.profile;
+      const pref = prefRes.preference;
+      if (p || pref) {
+        setProfile(prev => ({
+          ...prev,
+          name: p?.name || localStorage.getItem("userName") || "",
+          email: p?.email || "",
+          phone: p?.phone || "",
+          location: p?.location || "",
+          skills: Array.isArray(p?.skills) ? p.skills.join(", ") : (p?.skills || ""),
+          experiences: (p?.experience || []).map((e: any, i: number) => ({
+            id: i + 1,
+            title: e.title || "",
+            company: e.company || "",
+            date: `${e.start || ""}${e.end ? " - " + e.end : ""}`,
+            location: e.location || "",
+            bullets: e.bullets || [],
+          })),
+          education: (p?.education || []).map((e: any, i: number) => ({
+            id: i + 1,
+            school: e.school || "",
+            degree: e.degree || "",
+            date: `${e.start || ""}${e.end ? " - " + e.end : ""}`,
+            details: e.field || "",
+          })),
+          targetRoles: pref?.target_roles || "",
+          targetIndustries: pref?.target_industries || "",
+          salaryExpectation: pref?.salary_min ? `${pref.salary_min} - ${pref.salary_max || ""}` : "",
+          companySize: pref?.company_size || "",
+        }));
+      }
+    }).finally(() => setLoading(false));
+  }, []);
 
   const handleSave = () => {
     setIsEditing(false);

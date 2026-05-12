@@ -17,7 +17,7 @@ Job: ${job.title} at ${job.company}. ${job.description ?? ""}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: ENV.OPENAI_MODEL,
+      model: ENV.OPENAI_MATCHING_MODEL,
       messages: [{ role: "user", content: prompt }],
     });
     return (response.choices[0]?.message?.content || "").trim() || "A strong match based on your skills and preferences.";

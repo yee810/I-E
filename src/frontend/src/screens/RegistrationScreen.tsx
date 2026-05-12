@@ -33,7 +33,8 @@ export function RegistrationScreen() {
       localStorage.setItem("token", res.token);
       localStorage.setItem("userId", String(res.user.id));
       if (res.user.role) localStorage.setItem("role", res.user.role);
-      navigate("/profile-input");
+      localStorage.setItem("userName", res.user.email.split("@")[0]);
+      navigate(res.user.onboardingComplete ? "/chat" : "/profile-input");
     } catch (e: any) {
       setError(e.message || t("auth.authFailed"));
     } finally {

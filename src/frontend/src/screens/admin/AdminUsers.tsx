@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { adminApi } from "../../lib/adminApi";
-import { Search, X, ChevronLeft, ChevronRight, Trash2, Edit3 } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Trash2, Edit3, KeyRound } from "lucide-react";
 
 export default function AdminUsers() {
   const { t } = useTranslation();
@@ -39,7 +39,7 @@ export default function AdminUsers() {
 
   const handleRoleToggle = async (u: any) => {
     const newRole = u.role === "admin" ? "user" : "admin";
-    if (!confirm(t("admin.users.deleteConfirm"))) return;
+    if (!confirm(`${t("admin.users.updateRole")}: ${u.email} → ${newRole}?`)) return;
     await adminApi.updateUser(u.id, { role: newRole });
     load();
   };
@@ -49,6 +49,16 @@ export default function AdminUsers() {
     await adminApi.deleteUser(u.id);
     if (selected?.id === u.id) { setSelected(null); setDetail(null); }
     load();
+  };
+
+  const handleResetPassword = async (u: any) => {
+    if (!confirm(`${t("admin.users.resetPasswordConfirm")} (${u.email})`)) return;
+    try {
+      const res = await adminApi.resetUserPassword(u.id);
+      alert(`${t("admin.users.newPassword")}: ${res.tempPassword}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to reset password");
+    }
   };
 
   const statusColor = (role: string) => role === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600";
@@ -101,6 +111,7 @@ export default function AdminUsers() {
                   <td className="px-5 py-3.5 text-sm text-gray-500">{u.created_at?.slice(0, 16)}</td>
                   <td className="px-5 py-3.5 text-right">
                     <button onClick={(e) => { e.stopPropagation(); handleRoleToggle(u); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600" title={t("admin.users.updateRole")}><Edit3 className="w-4 h-4" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleResetPassword(u); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-amber-600 ml-1" title={t("admin.users.resetPassword")}><KeyRound className="w-4 h-4" /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(u); }} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 ml-1" title={t("common.delete")}><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
@@ -161,7 +172,22 @@ export default function AdminUsers() {
                 {detail.matches.map((m: any) => (
                   <div key={m.id} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50">
                     <span className="text-gray-700 truncate flex-1">{m.title || `${t("common.id")} #${m.job_id}`}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${m.status === "accepted" ? "bg-green-100 text-green-700" : m.status === "rejected" ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-500"}`}>{m.status}</span>
                     <span className="text-xs text-gray-400 ml-2">{m.match_score?.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {detail.conversations.length > 0 && (
+            <section>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("admin.users.conversations")}</h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {detail.conversations.slice(-20).map((c: any, i: number) => (
+                  <div key={i} className={`text-sm p-2 rounded-lg ${c.role === "user" ? "bg-blue-50" : "bg-gray-50"}`}>
+                    <span className="font-medium text-xs text-gray-500">{c.role}:</span>
+                    <p className="text-gray-700 mt-0.5 line-clamp-3">{c.content}</p>
                   </div>
                 ))}
               </div>

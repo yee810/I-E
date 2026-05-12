@@ -87,17 +87,17 @@ export function Sidebar() {
           </nav>
 
           <div className="p-4 border-t border-gray-200 mt-auto">
-            <Link 
+            <Link
               to="/settings"
               className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors text-sm font-medium ${
                 isActive('/settings') ? 'bg-gray-200 text-gray-900' : 'text-gray-900 hover:bg-gray-200'
               }`}
             >
               <div className="w-8 h-8 bg-[#5c9be6]/20 rounded-full flex items-center justify-center text-[#113a7a] font-bold shrink-0">
-                A
+                {(localStorage.getItem("userName") || "U")[0].toUpperCase()}
               </div>
               <div className="flex flex-col items-start truncate">
-                <span className="truncate w-full text-left">Alex</span>
+                <span className="truncate w-full text-left">{localStorage.getItem("userName") || "User"}</span>
                 <span className="text-xs text-gray-500 font-normal">{t("nav.settings")}</span>
               </div>
             </Link>

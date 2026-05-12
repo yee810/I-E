@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
-import { BadgeCheck, MapPin, Clock, X } from "lucide-react";
+import { BadgeCheck, MapPin, Clock, X, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
 import { api } from "../lib/api";
 
 type JobData = {
   id: number;
+  match_id: number | null;
   title: string;
   company: string;
   location: string;
@@ -15,6 +15,7 @@ type JobData = {
   time?: string;
   matchReason?: string;
   matchScore?: string;
+  status?: string;
   verified?: boolean;
   logo: string;
   requirements?: string[];
@@ -24,46 +25,117 @@ type JobData = {
   applyMethod?: string;
 };
 
+function mapMatchRow(r: any): JobData {
+  return {
+    id: r.job_id ?? r.id,
+    match_id: r.match_id ?? r.id ?? null,
+    title: r.title,
+    company: r.company,
+    location: r.location ?? "",
+    appliedDate: r.created_at ? new Date(r.created_at).toLocaleDateString() : undefined,
+    matchReason: r.match_reason ?? "",
+    matchScore: typeof r.match_score === "number" ? `${Math.round(r.match_score * 100)}% Match` : undefined,
+    status: r.status ?? "pending",
+    verified: true,
+    logo: `https://picsum.photos/seed/${(r.company ?? "").replace(/\s+/g, "").toLowerCase()}/100/100`,
+    requirements: r.requirements ? String(r.requirements).split("\n").filter(Boolean) : [],
+    responsibilities: r.responsibilities ? String(r.responsibilities).split("\n").filter(Boolean) : [],
+    salary: r.salary_min
+      ? `$${r.salary_min.toLocaleString()}${r.salary_max ? ` - $${r.salary_max.toLocaleString()}` : ""} / month`
+      : undefined,
+    deadline: r.deadline ?? "",
+    applyMethod: r.source_url ?? "",
+  };
+}
+
 export function DashboardScreen() {
-  const [activeTab, setActiveTab] = useState<"applied" | "suggested">("suggested");
+  const [activeTab, setActiveTab] = useState<"applied" | "suggested" | "rejected">("suggested");
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
   const [suggestedJobs, setSuggestedJobs] = useState<JobData[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<JobData[]>([]);
+  const [rejectedJobs, setRejectedJobs] = useState<JobData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { t } = useTranslation();
 
-  const userId = Number(localStorage.getItem("userId"));
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (!userId) return;
+    if (!token) return;
     setLoading(true);
-    api
-      .getRecommendations(userId, 10)
+    const p1 = api.getRecommendations(10)
       .then((data) => {
-        const mapped = (data.recommendations || []).map((r: any) => ({
-          id: r.job_id ?? r.id,
-          title: r.title,
-          company: r.company,
-          location: r.location ?? "",
-          time: "Suggested",
-          matchReason: r.match_reason ?? "",
-          matchScore: typeof r.match_score === "number" ? `${Math.round(r.match_score * 100)}% Match` : undefined,
-          verified: true,
-          logo: `https://picsum.photos/seed/${(r.company ?? "").replace(/\s+/g, "").toLowerCase()}/100/100`,
-          requirements: r.requirements ? String(r.requirements).split("\n").filter(Boolean) : [],
-          responsibilities: r.responsibilities ? String(r.responsibilities).split("\n").filter(Boolean) : [],
-          salary: r.salary_min
-            ? `$${r.salary_min.toLocaleString()}${r.salary_max ? ` - $${r.salary_max.toLocaleString()}` : ""} / month`
-            : undefined,
-          deadline: r.deadline ?? "",
-          applyMethod: r.source_url ?? "",
-        }));
-        setSuggestedJobs(mapped);
+        const recs = data.recommendations || [];
+        if (recs.length > 0) {
+          setSuggestedJobs(recs.map(mapMatchRow));
+        } else {
+          return api.getMyMatches("pending").then((d: any) => {
+            setSuggestedJobs((d.matches || []).map(mapMatchRow));
+          }).catch(() => setSuggestedJobs([]));
+        }
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [userId]);
+      .catch((e) => setError(e.message));
+    const p2 = api.getMyMatches("accepted")
+      .then((data: any) => {
+        setAppliedJobs((data.matches || []).map(mapMatchRow));
+      })
+      .catch(() => setAppliedJobs([]));
+    const p3 = api.getMyMatches("rejected")
+      .then((data: any) => {
+        setRejectedJobs((data.matches || []).map(mapMatchRow));
+      })
+      .catch(() => setRejectedJobs([]));
+    Promise.all([p1, p2, p3]).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const handleReject = async (job: JobData) => {
+    if (!job.match_id) return;
+    try {
+      await api.updateMatchStatus(job.match_id, "rejected");
+      setSuggestedJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setRejectedJobs((prev) => [mapMatchRow({ ...job, status: "rejected" }), ...prev]);
+      if (selectedJob?.id === job.id) setSelectedJob(null);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleAccept = async (job: JobData) => {
+    if (!job.match_id) return;
+    try {
+      await api.updateMatchStatus(job.match_id, "accepted");
+      setSuggestedJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setAppliedJobs((prev) => [mapMatchRow({ ...job, status: "accepted" }), ...prev]);
+      if (selectedJob?.id === job.id) setSelectedJob(null);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleWithdraw = async (job: JobData) => {
+    if (!job.match_id) return;
+    try {
+      await api.updateMatchStatus(job.match_id, "pending");
+      setAppliedJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setSuggestedJobs((prev) => [mapMatchRow({ ...job, status: "pending" }), ...prev]);
+      if (selectedJob?.id === job.id) setSelectedJob(null);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleRemoveRejected = async (job: JobData) => {
+    if (!job.match_id) return;
+    try {
+      await api.updateMatchStatus(job.match_id, "pending");
+      setRejectedJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setSuggestedJobs((prev) => [mapMatchRow({ ...job, status: "pending" }), ...prev]);
+      if (selectedJob?.id === job.id) setSelectedJob(null);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="h-screen bg-white flex overflow-hidden">
@@ -95,6 +167,17 @@ export function DashboardScreen() {
               >
                 {t("dashboard.suggestedByAI")}
                 {activeTab === "suggested" && (
+                  <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("rejected")}
+                className={`pb-4 text-lg font-medium transition-colors relative ${
+                  activeTab === "rejected" ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t("dashboard.rejectedJobs")}
+                {activeTab === "rejected" && (
                   <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
               </button>
@@ -183,6 +266,45 @@ export function DashboardScreen() {
                               </span>
                             )}
                           </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "rejected" && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {rejectedJobs.length === 0 ? (
+                    <p className="text-gray-500">{t("dashboard.noRejected")}</p>
+                  ) : (
+                    rejectedJobs.map((job, index) => (
+                      <motion.div
+                        key={job.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        onClick={() => setSelectedJob(job)}
+                        className={`flex py-6 border-b border-gray-200 last:border-0 cursor-pointer transition-colors hover:bg-gray-50 -mx-4 px-4 rounded-xl ${
+                          selectedJob?.id === job.id ? "bg-gray-50" : ""
+                        }`}
+                      >
+                        <div className="w-16 h-16 mr-5 shrink-0">
+                          <img
+                            src={job.logo}
+                            alt={job.company}
+                            className="w-full h-full object-cover rounded-sm opacity-60"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="text-[19px] font-bold text-gray-900 flex items-center gap-1.5 leading-tight">
+                            {job.title}
+                          </h3>
+                          <p className="text-[17px] text-gray-900 mt-1">{job.company}</p>
+                          <p className="text-[15px] text-gray-500 mt-0.5">{job.location}</p>
+                          <p className="text-[14px] text-red-400 mt-1.5">{t("dashboard.markedNotInterested")}</p>
                         </div>
                       </motion.div>
                     ))
@@ -285,22 +407,51 @@ export function DashboardScreen() {
               </div>
             )}
 
-            <div className="pt-4 flex gap-3">
-              {activeTab === "suggested" && (
+            {activeTab === "suggested" ? (
+              <div className="pt-4 flex gap-3">
                 <button
-                  onClick={() => setSelectedJob(null)}
+                  onClick={() => handleReject(selectedJob)}
                   className="flex-1 bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   {t("dashboard.notInterested")}
                 </button>
-              )}
-              <button
-                onClick={() => setSelectedJob(null)}
-                className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors"
-              >
-                {activeTab === "suggested" ? "Apply Now" : "View Application"}
-              </button>
-            </div>
+                <button
+                  onClick={() => handleAccept(selectedJob)}
+                  className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  {t("common.applyNow")}
+                </button>
+              </div>
+            ) : activeTab === "rejected" ? (
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={() => handleRemoveRejected(selectedJob)}
+                  className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors"
+                >
+                  {t("dashboard.restore")}
+                </button>
+              </div>
+            ) : (
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={() => handleWithdraw(selectedJob)}
+                  className="flex-1 bg-white border border-gray-200 text-red-600 font-semibold py-3 rounded-xl hover:bg-red-50 transition-colors"
+                >
+                  {t("dashboard.withdraw")}
+                </button>
+                {selectedJob.applyMethod && (
+                  <a
+                    href={selectedJob.applyMethod.includes("@") ? `mailto:${selectedJob.applyMethod}` : selectedJob.applyMethod}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors text-center"
+                  >
+                    {t("common.applyNow")}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </aside>
       )}

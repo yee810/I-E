@@ -1,6 +1,8 @@
 import db from "../db/connection.ts";
 import { parsePagination, PaginationOptions } from "../utils/pagination.ts";
 
+const JOB_SORT_COLUMNS = ["id", "title", "company", "status", "created_at"];
+
 export function listJobs(
   options: PaginationOptions & {
     status?: string;
@@ -9,8 +11,10 @@ export function listJobs(
     industry?: string;
   }
 ) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: JOB_SORT_COLUMNS,
+  });
 
   const conditions: string[] = [];
   const params: any[] = [];
@@ -82,7 +86,7 @@ export function createJob(data: any) {
       data.responsibilities,
       data.salary_min,
       data.salary_max,
-      data.salary_currency || "HKD",
+      data.salary_currency || "CNY",
       data.deadline,
       data.job_type,
       data.industry,

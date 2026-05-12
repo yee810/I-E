@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
+import { api } from "../lib/api";
 import {
   LogOut,
   Trash2,
@@ -25,13 +26,18 @@ export function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    // In a real app, clear auth state here
+    localStorage.clear();
     navigate("/");
   };
 
-  const handleDeleteAccount = () => {
-    if (window.confirm(t("settings.deleteConfirm"))) {
+  const handleDeleteAccount = async () => {
+    if (!window.confirm(t("settings.deleteConfirm"))) return;
+    try {
+      await api.deleteAccount();
+      localStorage.clear();
       navigate("/");
+    } catch (e: any) {
+      alert(e.message || "Failed to delete account");
     }
   };
 

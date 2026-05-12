@@ -1,9 +1,15 @@
 import db from "../db/connection.ts";
 import { parsePagination, PaginationOptions } from "../utils/pagination.ts";
 
+const USER_SORT_COLUMNS = ["id", "email", "role", "created_at"];
+const CONVERSATION_SORT_COLUMNS = ["id", "role", "created_at"];
+const MATCH_SORT_COLUMNS = ["id", "match_score", "status", "created_at"];
+
 export function listUsers(options: PaginationOptions & { search?: string }) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: USER_SORT_COLUMNS,
+  });
 
   let where = "1=1";
   const params: any[] = [];
@@ -94,8 +100,10 @@ export function getUserConversations(
   userId: number,
   options: PaginationOptions
 ) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: CONVERSATION_SORT_COLUMNS,
+  });
 
   const countRow = db
     .prepare("SELECT COUNT(*) as total FROM conversations WHERE user_id = ?")
@@ -119,8 +127,10 @@ export function getUserMatches(
   userId: number,
   options: PaginationOptions & { status?: string }
 ) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: MATCH_SORT_COLUMNS,
+  });
 
   let where = "user_id = ?";
   const params: any[] = [userId];

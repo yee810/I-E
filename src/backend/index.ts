@@ -7,6 +7,7 @@ import { initSchema } from "./db/init.ts";
 import { seedAdmin } from "./db/seed-admin.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
 import { localeDetector } from "./middleware/localeDetector.ts";
+import { authGuard } from "./middleware/authGuard.ts";
 
 import authRoutes from "./routes/auth.ts";
 import profileRoutes from "./routes/profiles.ts";
@@ -16,6 +17,7 @@ import matchingRoutes from "./routes/matching.ts";
 import feedbackRoutes from "./routes/feedback.ts";
 import chatRoutes from "./routes/chat.ts";
 import eventRoutes from "./routes/events.ts";
+import matchRoutes from "./routes/matches.ts";
 import adminRoutes from "./routes/admin/index.ts";
 
 initSchema();
@@ -34,13 +36,14 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/profiles", profileRoutes);
-app.use("/api/preferences", preferenceRoutes);
+app.use("/api/profiles", authGuard, profileRoutes);
+app.use("/api/preferences", authGuard, preferenceRoutes);
 app.use("/api/jobs", jobRoutes);
-app.use("/api/matching", matchingRoutes);
-app.use("/api/feedback", feedbackRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/events", eventRoutes);
+app.use("/api/matching", authGuard, matchingRoutes);
+app.use("/api/feedback", authGuard, feedbackRoutes);
+app.use("/api/chat", authGuard, chatRoutes);
+app.use("/api/matches", authGuard, matchRoutes);
+app.use("/api/events", authGuard, eventRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Serve frontend static files from built dist/ (relative to backend dir -> ../frontend/dist)
@@ -54,5 +57,5 @@ app.use(errorHandler as any);
 
 app.listen(ENV.PORT, () => {
   console.log(`[Server] Jobro backend running on http://localhost:${ENV.PORT}`);
-  console.log(`[Config] AI: ${ENV.OPENAI_API_KEY ? `${ENV.OPENAI_MODEL} @ ${ENV.OPENAI_BASE_URL || "openai"}` : "disabled"}`);
+  console.log(`[Config] AI: ${ENV.OPENAI_API_KEY ? `cv=${ENV.OPENAI_CV_MODEL}, matching=${ENV.OPENAI_MATCHING_MODEL} @ ${ENV.OPENAI_BASE_URL || "openai"}` : "disabled"}`);
 });

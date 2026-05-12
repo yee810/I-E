@@ -5,12 +5,7 @@ const router = Router();
 
 router.get("/", (req, res, next) => {
   try {
-    const userId = Number(req.query.user_id);
-    if (!userId) {
-      const err = new Error("Missing user_id") as any;
-      err.statusCode = 400;
-      throw err;
-    }
+    const userId = (req as any).user.id;
     const row = db.prepare("SELECT * FROM preferences WHERE user_id = ?").get(userId) as any;
     if (!row) {
       res.json({ preference: null });
@@ -24,19 +19,16 @@ router.get("/", (req, res, next) => {
 
 router.post("/", (req, res, next) => {
   try {
-    const { user_id, target_roles, target_industries, target_locations, availability_days, availability_months, salary_min, salary_max, company_size, other_notes } = req.body;
-    if (!user_id) {
-      const err = new Error("Missing user_id") as any;
-      err.statusCode = 400;
-      throw err;
-    }
+    const userId = (req as any).user.id;
+    const { target_roles, target_industries, target_locations, excluded_roles, availability_days, availability_months, salary_min, salary_max, company_size, other_notes } = req.body;
     const insert = db.prepare(`
-      INSERT INTO preferences (user_id, target_roles, target_industries, target_locations, availability_days, availability_months, salary_min, salary_max, company_size, other_notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO preferences (user_id, target_roles, target_industries, target_locations, excluded_roles, availability_days, availability_months, salary_min, salary_max, company_size, other_notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
         target_roles = excluded.target_roles,
         target_industries = excluded.target_industries,
         target_locations = excluded.target_locations,
+        excluded_roles = excluded.excluded_roles,
         availability_days = excluded.availability_days,
         availability_months = excluded.availability_months,
         salary_min = excluded.salary_min,
@@ -46,10 +38,11 @@ router.post("/", (req, res, next) => {
         updated_at = CURRENT_TIMESTAMP
     `);
     insert.run(
-      user_id,
+      userId,
       target_roles ?? null,
       target_industries ?? null,
       target_locations ?? null,
+      excluded_roles ?? null,
       availability_days ?? null,
       availability_months ?? null,
       salary_min ?? null,

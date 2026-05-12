@@ -1,5 +1,7 @@
 import { Router } from "express";
 import db from "../db/connection.ts";
+import { AppError } from "../utils/AppError.ts";
+import { authGuard } from "../middleware/authGuard.ts";
 
 const router = Router();
 
@@ -14,13 +16,11 @@ router.get("/", (req, res, next) => {
   }
 });
 
-router.post("/bulk", (req, res, next) => {
+router.post("/bulk", authGuard, (req, res, next) => {
   try {
     const { jobs } = req.body;
     if (!Array.isArray(jobs) || jobs.length === 0) {
-      const err = new Error("jobs must be a non-empty array") as any;
-      err.statusCode = 400;
-      throw err;
+      throw new AppError("jobs.invalid_bulk", 400);
     }
     const insert = db.prepare(`
       INSERT INTO jobs (source, source_url, title, company, location, description, requirements, responsibilities, salary_min, salary_max, salary_currency, deadline, job_type, industry, role_type, seniority, tags)
@@ -39,7 +39,7 @@ router.post("/bulk", (req, res, next) => {
           j.responsibilities ?? null,
           j.salary_min ?? null,
           j.salary_max ?? null,
-          j.salary_currency ?? "HKD",
+          j.salary_currency ?? "CNY",
           j.deadline ?? null,
           j.job_type ?? null,
           j.industry ?? null,

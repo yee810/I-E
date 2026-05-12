@@ -29,7 +29,7 @@ export function standardize(raw: any): StandardizedJob {
     responsibilities: raw.responsibilities ? String(raw.responsibilities).trim() : undefined,
     salary_min: toNum(raw.salary_min),
     salary_max: toNum(raw.salary_max),
-    salary_currency: norm(raw.salary_currency) || "HKD",
+    salary_currency: norm(raw.salary_currency) || "CNY",
     deadline: raw.deadline || undefined,
     job_type: norm(raw.job_type),
     industry: norm(raw.industry),

@@ -111,7 +111,7 @@ export default function AdminJobs() {
                     {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
-                <td className="px-5 py-3.5 text-sm text-gray-600">{j.salary_min && j.salary_max ? `${j.salary_min}-${j.salary_max} ${j.salary_currency || "HKD"}` : "-"}</td>
+                <td className="px-5 py-3.5 text-sm text-gray-600">{j.salary_min && j.salary_max ? `${j.salary_min}-${j.salary_max} ${j.salary_currency || "CNY"}` : "-"}</td>
                 <td className="px-5 py-3.5 text-right">
                   <button onClick={() => { setEditJob(j); setShowModal(true); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600"><Edit3 className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(j)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 ml-1"><Trash2 className="w-4 h-4" /></button>
@@ -145,7 +145,7 @@ function JobModal({ job, onSave, onClose, t }: { job: any; onSave: (d: any) => v
     responsibilities: job?.responsibilities || "",
     salary_min: job?.salary_min || "",
     salary_max: job?.salary_max || "",
-    salary_currency: job?.salary_currency || "HKD",
+    salary_currency: job?.salary_currency || "CNY",
     deadline: job?.deadline || "",
     job_type: job?.job_type || "",
     industry: job?.industry || "",

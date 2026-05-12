@@ -37,6 +37,22 @@
     "updated": "Configuration updated",
     "not_found": "Configuration key not found"
   },
+  "profile": {
+    "pdf_required": "Only PDF files are allowed"
+  },
+  "jobs": {
+    "invalid_bulk": "jobs must be a non-empty array"
+  },
+  "feedback": {
+    "missing_fields": "Missing match_id or type",
+    "invalid_type": "Invalid feedback type"
+  },
+  "chat": {
+    "missing_message": "Message is required"
+  },
+  "events": {
+    "missing_type": "Missing event_type"
+  },
   "internal": {
     "server_error": "Internal server error"
   }

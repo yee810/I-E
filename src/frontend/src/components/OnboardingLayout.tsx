@@ -13,6 +13,7 @@ interface OnboardingLayoutProps {
   onBack?: () => void;
   nextLabel?: string;
   backLabel?: string;
+  nextDisabled?: boolean;
 }
 
 export function OnboardingLayout({
@@ -25,6 +26,7 @@ export function OnboardingLayout({
   onBack,
   nextLabel = "Next Step",
   backLabel = "Back",
+  nextDisabled = false,
 }: OnboardingLayoutProps) {
   return (
     <div className="min-h-screen bg-[#F8F9FC] flex flex-col items-center py-12 px-4 relative overflow-hidden">
@@ -73,9 +75,10 @@ export function OnboardingLayout({
           </button>
         )}
         {onNext && (
-          <button 
+          <button
             onClick={onNext}
-            className="flex-1 bg-[#113a7a] text-white font-medium py-4 rounded-full hover:bg-[#0d2b5c] transition-colors shadow-md"
+            disabled={nextDisabled}
+            className={`flex-1 font-medium py-4 rounded-full shadow-md transition-colors ${nextDisabled ? "bg-gray-400 text-gray-200 cursor-not-allowed" : "bg-[#113a7a] text-white hover:bg-[#0d2b5c]"}`}
           >
             {nextLabel}
           </button>

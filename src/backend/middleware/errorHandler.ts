@@ -8,14 +8,15 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  console.error("[Error]", err);
   const locale = (req as any).locale ?? "en";
 
   if (err instanceof AppError) {
+    if (err.statusCode >= 500) console.error("[Error]", err);
     res.status(err.statusCode).json(err.toJSON(locale));
     return;
   }
 
+  console.error("[Error]", err);
   const code = (err as any).statusCode ?? 500;
   res.status(code).json({
     error: err.message || "internal.server_error",

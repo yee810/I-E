@@ -2,6 +2,9 @@ import { Router } from "express";
 import * as svc from "../../services/adminUserService.ts";
 import { AppError } from "../../utils/AppError.ts";
 import { logAction } from "../../services/adminSystemService.ts";
+import { hashPassword } from "../../utils/auth.ts";
+import crypto from "node:crypto";
+import db from "../../db/connection.ts";
 
 const router = Router();
 
@@ -87,6 +90,19 @@ router.get("/users/:id/matches", (req, res, next) => {
       status: req.query.status as string || undefined,
     });
     res.json(result);
+  } catch (e) { next(e); }
+});
+
+router.post("/users/:id/reset-password", (req, res, next) => {
+  try {
+    const user = svc.getUser(Number(req.params.id));
+    if (!user) throw new AppError("user.not_found", 404);
+
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
+    const { hash, salt } = hashPassword(tempPassword);
+    db.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").run(hash, salt, user.id);
+    logAction((req as any).user.id, "user.reset_password", "user", Number(req.params.id));
+    res.json({ ok: true, tempPassword });
   } catch (e) { next(e); }
 });
 

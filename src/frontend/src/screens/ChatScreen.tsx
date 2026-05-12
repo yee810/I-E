@@ -7,8 +7,25 @@ import { Sidebar } from "../components/Sidebar";
 import { Logo } from "../components/Logo";
 import { api } from "../lib/api";
 
+const STEP_ICONS: Record<string, string> = {
+  filter: "\u{1F50D}",
+  scan: "\u{1F4CB}",
+  tool_call: "\u{1F441}",
+  tool_result: "\u{1F4C4}",
+  scoring: "⚖️",
+  done: "✅",
+};
+
+type ProfileData = {
+  name?: string;
+  education?: Array<{ school?: string; degree?: string; field?: string }>;
+  experience?: Array<{ title?: string; company?: string; start?: string; end?: string }>;
+  skills?: string[];
+};
+
 type JobData = {
   id: string;
+  match_id: number;
   title: string;
   company: string;
   location: string;
@@ -22,6 +39,12 @@ type JobData = {
   applyMethod?: string;
 };
 
+type AgentStepItem = {
+  type: string;
+  label: string;
+  detail: string;
+};
+
 type Message = {
   id: string;
   role: "assistant" | "user";
@@ -29,6 +52,8 @@ type Message = {
   isInitial?: boolean;
   isJobMatch?: boolean;
   isProfileSummary?: boolean;
+  isAgentProcess?: boolean;
+  agentSteps?: AgentStepItem[];
   jobsData?: JobData[];
 };
 
@@ -39,18 +64,116 @@ export function ChatScreen() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasAddedSummary = useRef(false);
+
+  const mapRecsToJobData = (recs: any[]): JobData[] => recs.map((r: any) => ({
+    id: String(r.job_id ?? r.id),
+    match_id: r.match_id,
+    title: r.title,
+    company: r.company,
+    location: r.location || "",
+    time: "Suggested",
+    matchPercentage: `${Math.round((r.match_score ?? 0.7) * 100)}% Match`,
+    matchReason: r.match_reason || "",
+    requirements: r.requirements ? String(r.requirements).split("\n").filter(Boolean) : [],
+    responsibilities: r.responsibilities ? String(r.responsibilities).split("\n").filter(Boolean) : [],
+    salary: r.salary_min
+      ? `$${r.salary_min.toLocaleString()}${r.salary_max ? ` - $${r.salary_max.toLocaleString()}` : ""} / month`
+      : undefined,
+    deadline: r.deadline || "",
+    applyMethod: r.source_url || "",
+  }));
+
+  useEffect(() => {
+    api.getProfile().then((data: any) => {
+      if (data.profile) setProfile(data.profile);
+    }).catch(() => {});
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       role: "assistant",
       content: t("chat.greeting"),
-      isJobMatch: true,
-      jobsData: [],
+      isJobMatch: false,
     },
   ]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    api.getChatHistory().then((data: any) => {
+      const history = data.messages || [];
+      const pending = data.pendingMatches || [];
+
+      if (history.length > 0) {
+        const restored: Message[] = [
+          { id: "0", role: "assistant", content: t("chat.greeting"), isJobMatch: false },
+          ...history.map((m: any, i: number) => ({
+            id: `hist-${i}`,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
+
+        if (pending.length > 0) {
+          restored.push({
+            id: "hist-jobs",
+            role: "assistant",
+            content: "",
+            isJobMatch: true,
+            jobsData: mapRecsToJobData(pending),
+          });
+        }
+
+        setMessages(restored);
+      } else if (pending.length > 0) {
+        // New user with pre-generated matches from preferences screen
+        setMessages([
+          { id: "0", role: "assistant", content: t("chat.greeting"), isJobMatch: false },
+          { id: "auto-recs", role: "assistant", content: "", isJobMatch: true, jobsData: mapRecsToJobData(pending) },
+        ]);
+      } else {
+        // No matches yet — use SSE streaming for real-time Agent steps
+        const agentMsgId = "auto-agent";
+        setMessages([
+          { id: "0", role: "assistant", content: t("chat.greeting"), isJobMatch: false },
+          { id: agentMsgId, role: "assistant", content: "", isAgentProcess: true, agentSteps: [] },
+        ]);
+        api.streamMatching(10, (step) => {
+          setMessages(prev => prev.map(m =>
+            m.id === agentMsgId
+              ? { ...m, agentSteps: [...(m.agentSteps || []), step] }
+              : m
+          ));
+        }).then((recs) => {
+          if (recs.length > 0) {
+            setMessages(prev => [
+              ...prev.filter(m => m.id !== agentMsgId),
+              { id: "auto-recs", role: "assistant", content: "", isJobMatch: true, jobsData: mapRecsToJobData(recs) },
+            ]);
+          } else {
+            setMessages(prev => prev.filter(m => m.id !== agentMsgId));
+          }
+        }).catch(() => {
+          // Fallback to non-streaming
+          api.getRecommendations(5).then((recData: any) => {
+            const recs = recData.recommendations || [];
+            if (recs.length > 0) {
+              setMessages(prev => [
+                ...prev.filter(m => m.id !== agentMsgId),
+                { id: "auto-recs", role: "assistant", content: "", isJobMatch: true, jobsData: mapRecsToJobData(recs) },
+              ]);
+            } else {
+              setMessages(prev => prev.filter(m => m.id !== agentMsgId));
+            }
+          }).catch(() => {});
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -86,8 +209,8 @@ export function ChatScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    const userId = Number(localStorage.getItem("userId"));
-    if (!userId) {
+    const token = localStorage.getItem("token");
+    if (!token) {
       setMessages((prev) => [
         ...prev,
         { id: Date.now().toString(), role: "assistant", content: t("chat.notLoggedIn") },
@@ -95,37 +218,101 @@ export function ChatScreen() {
       return;
     }
 
-    const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: inputText };
+    const userText = inputText;
+    const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: userText };
     setMessages((prev) => [...prev, newUserMsg]);
     setInputText("");
     setIsLoading(true);
 
-    try {
-      const data = await api.chat(userId, inputText);
+    // Detect if user is asking about jobs or updating location/prefs — show Agent steps if so
+    const jobKeywords = ["推荐", "工作", "岗位", "职位", "有什么", "适合我", "recommend", "jobs", "find me", "suggest", "match", "看看", "有没有", "帮我找", "找工作", "求职", "切换", "换成", "沿海", "上海", "北京", "深圳", "广州", "杭州", "成都", "南京", "武汉", "苏州"];
+    const wantsJobs = jobKeywords.some(kw => userText.toLowerCase().includes(kw));
+
+    let agentMsgId: string | undefined;
+    if (wantsJobs) {
+      agentMsgId = (Date.now() + 1).toString();
       setMessages((prev) => [
         ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: data.reply || t("chat.processing"),
-        },
+        { id: agentMsgId!, role: "assistant", content: "", isAgentProcess: true, agentSteps: [] },
       ]);
+    }
+
+    try {
+      if (wantsJobs) {
+        // Step 1: Send chat first to extract + save preference updates
+        // Chat won't return recommendations — those come from SSE stream
+        let firstReply = "";
+        try {
+          const chatData = await api.chat(userText);
+          firstReply = chatData.reply || "";
+        } catch { /* non-critical */ }
+
+        // Step 2: SSE streaming matching with Agent steps
+        // Check if previous matches should be cleared first (new prefs → force refresh)
+        const recs = await api.streamMatching(10, (step) => {
+          setMessages(prev => prev.map(m =>
+            m.id === agentMsgId
+              ? { ...m, agentSteps: [...(m.agentSteps || []), step] }
+              : m
+          ));
+        });
+
+        // Step 3: Remove agent process card, render final reply + cards
+        if (agentMsgId) {
+          setMessages(prev => prev.filter(m => m.id !== agentMsgId));
+        }
+
+        let reply = "";
+        if (recs.length > 0) {
+          reply = `根据您的偏好，我为您筛选了 ${recs.length} 个匹配岗位，请查看下方推荐卡片。`;
+        } else {
+          reply = firstReply || "暂未找到符合条件的岗位，您可以尝试调整偏好。";
+        }
+
+        const newMessages: Message[] = [];
+        newMessages.push({ id: (Date.now() + 2).toString(), role: "assistant", content: reply });
+        if (recs.length > 0) {
+          newMessages.push({
+            id: (Date.now() + 3).toString(),
+            role: "assistant",
+            content: "",
+            isJobMatch: true,
+            jobsData: mapRecsToJobData(recs),
+          });
+        }
+        setMessages(prev => [...prev, ...newMessages]);
+      } else {
+        // Normal chat without matching
+        const data = await api.chat(userText);
+        const newMessages: Message[] = [
+          { id: Date.now().toString(), role: "assistant", content: data.reply || t("chat.processing") },
+        ];
+        if (data.recommendations && data.recommendations.length > 0) {
+          newMessages.push({
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "",
+            isJobMatch: true,
+            jobsData: mapRecsToJobData(data.recommendations),
+          });
+        }
+        setMessages(prev => [...prev, ...newMessages]);
+      }
     } catch (error) {
       console.error(error);
-      setMessages((prev) => [
+      if (agentMsgId) {
+        setMessages(prev => prev.filter(m => m.id !== agentMsgId));
+      }
+      setMessages(prev => [
         ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: t("chat.errorGeneric"),
-        },
+        { id: Date.now().toString(), role: "assistant", content: t("chat.errorGeneric") },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConfirmProfile = () => {
+  const handleConfirmProfile = async () => {
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -133,19 +320,46 @@ export function ChatScreen() {
     };
     setMessages((prev) => [...prev, newUserMsg]);
 
-    setTimeout(() => {
+    const agentMsgId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      { id: agentMsgId, role: "assistant", content: "", isAgentProcess: true, agentSteps: [] },
+    ]);
+
+    try {
+      const recs = await api.streamMatching(5, (step) => {
+        setMessages(prev => prev.map(m =>
+          m.id === agentMsgId
+            ? { ...m, agentSteps: [...(m.agentSteps || []), step] }
+            : m
+        ));
+      });
+      if (recs.length === 0) {
+        setMessages((prev) => [
+          ...prev.filter(m => m.id !== agentMsgId),
+          { id: (Date.now() + 2).toString(), role: "assistant", content: t("dashboard.noSuggestions") },
+        ]);
+        return;
+      }
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter(m => m.id !== agentMsgId),
         {
-          id: (Date.now() + 1).toString(),
+          id: (Date.now() + 2).toString(),
           role: "assistant",
           content: t("chat.profileSaved"),
+          isJobMatch: true,
+          jobsData: mapRecsToJobData(recs),
         },
       ]);
-    }, 1000);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev.filter(m => m.id !== agentMsgId),
+        { id: (Date.now() + 2).toString(), role: "assistant", content: t("chat.errorGeneric") },
+      ]);
+    }
   };
 
-  const handlePassJob = (jobId: string) => {
+  const handlePassJob = async (matchId: number) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -155,7 +369,8 @@ export function ChatScreen() {
       },
     ]);
 
-    setTimeout(() => {
+    try {
+      await api.updateMatchStatus(matchId, "rejected");
       setMessages((prev) => [
         ...prev,
         {
@@ -164,11 +379,39 @@ export function ChatScreen() {
           content: t("chat.notInterestedReply"),
         },
       ]);
-    }, 1000);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: t("chat.errorGeneric"),
+        },
+      ]);
+    }
   };
 
-  const handleApplyJob = (jobId: string) => {
-    alert(t("chat.redirectApply"));
+  const handleApplyJob = async (matchId: number) => {
+    try {
+      await api.updateMatchStatus(matchId, "accepted");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: t("chat.applySuccess"),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: t("chat.errorGeneric"),
+        },
+      ]);
+    }
   };
 
   return (
@@ -209,10 +452,34 @@ export function ChatScreen() {
                         ? "bg-gray-100 text-gray-900 max-w-[80%]"
                         : msg.isJobMatch
                         ? "bg-transparent px-0 py-0 w-full"
+                        : msg.isAgentProcess
+                        ? "bg-transparent px-0 py-0"
                         : "text-gray-900 whitespace-pre-wrap max-w-[80%]"
                     }`}
                   >
-                    {msg.isJobMatch && msg.jobsData ? (
+                    {msg.isAgentProcess ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-2.5 w-full max-w-md">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 bg-[#5c9be6] rounded-full animate-pulse" />
+                          <p className="text-sm font-semibold text-[#113a7a]">{t("chat.agentMatching")}</p>
+                        </div>
+                        {msg.agentSteps?.map((step, i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex items-start gap-2.5"
+                          >
+                            <span className="shrink-0 text-sm mt-0.5">{STEP_ICONS[step.type] || "•"}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{step.label}</p>
+                              <p className="text-xs text-gray-500 truncate">{step.detail}</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : msg.isJobMatch && msg.jobsData ? (
                       <div>
                         <p className="text-[15px] text-gray-900 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -230,55 +497,56 @@ export function ChatScreen() {
                     <div className="mt-2 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm w-full max-w-2xl">
                       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
                         <div className="w-16 h-16 bg-[#5c9be6]/20 rounded-full flex items-center justify-center text-[#113a7a] text-2xl font-bold">
-                          A
+                          {(profile?.name || "U")[0].toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-900 text-xl">Alex Chen</h4>
+                          <h4 className="font-bold text-gray-900 text-xl">{profile?.name || t("chat.newUser")}</h4>
                           <p className="text-gray-500 text-base">{t("chat.targetIndustries")}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("chat.targetIndustries")}</p>
-                          <p className="text-sm text-gray-900 font-medium">FinTech, Management Consulting</p>
-                        </div>
-                        <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("chat.keyStrengths")}</p>
                           <div className="flex flex-wrap gap-2">
-                            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-semibold">High Ambition</span>
-                            <span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-semibold">Interpersonal Sensitivity</span>
+                            {(profile?.skills || []).slice(0, 4).map((skill, i) => (
+                              <span key={i} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${i % 2 === 0 ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"}`}>{skill}</span>
+                            ))}
+                            {(!profile?.skills || profile.skills.length === 0) && (
+                              <span className="text-sm text-gray-400">{t("chat.noData")}</span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mb-6">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.workExperience")}</p>
-                        <div className="space-y-4">
-                          <div className="relative pl-4 border-l-2 border-gray-200">
-                            <div className="absolute w-2.5 h-2.5 bg-[#5c9be6] rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
-                            <h5 className="text-sm font-bold text-gray-900">Business Analyst Intern</h5>
-                            <p className="text-[#5c9be6] font-medium text-xs mb-1">McKinsey & Company</p>
-                            <p className="text-xs text-gray-500">Jun 2024 - Aug 2024</p>
-                          </div>
-                          <div className="relative pl-4 border-l-2 border-gray-200">
-                            <div className="absolute w-2.5 h-2.5 bg-gray-300 rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
-                            <h5 className="text-sm font-bold text-gray-900">Product Intern</h5>
-                            <p className="text-[#5c9be6] font-medium text-xs mb-1">Tencent</p>
-                            <p className="text-xs text-gray-500">May 2023 - Aug 2023</p>
+                      {profile?.experience && profile.experience.length > 0 && (
+                        <div className="mb-6">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.workExperience")}</p>
+                          <div className="space-y-4">
+                            {profile.experience.map((exp, i) => (
+                              <div key={i} className="relative pl-4 border-l-2 border-gray-200">
+                                <div className={`absolute w-2.5 h-2.5 rounded-full -left-[6px] top-1.5 ring-4 ring-white ${i === 0 ? "bg-[#5c9be6]" : "bg-gray-300"}`}></div>
+                                <h5 className="text-sm font-bold text-gray-900">{exp.title}</h5>
+                                <p className="text-[#5c9be6] font-medium text-xs mb-1">{exp.company}</p>
+                                <p className="text-xs text-gray-500">{exp.start}{exp.end ? ` - ${exp.end}` : ""}</p>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </div>
+                      )}
 
-                      <div className="mb-6">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.education")}</p>
-                        <div className="relative pl-4 border-l-2 border-gray-200">
-                          <div className="absolute w-2.5 h-2.5 bg-[#5c9be6] rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
-                          <h5 className="text-sm font-bold text-gray-900">The University of Hong Kong (HKU)</h5>
-                          <p className="text-[#5c9be6] font-medium text-xs mb-1">Bachelor of Business Administration</p>
-                          <p className="text-xs text-gray-500">Expected Graduation: May 2025</p>
+                      {profile?.education && profile.education.length > 0 && (
+                        <div className="mb-6">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t("chat.education")}</p>
+                          {profile.education.map((edu, i) => (
+                            <div key={i} className="relative pl-4 border-l-2 border-gray-200">
+                              <div className="absolute w-2.5 h-2.5 bg-[#5c9be6] rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
+                              <h5 className="text-sm font-bold text-gray-900">{edu.school}</h5>
+                              <p className="text-[#5c9be6] font-medium text-xs mb-1">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</p>
+                            </div>
+                          ))}
                         </div>
-                      </div>
+                      )}
 
                       <div className="flex gap-3 pt-2">
                         <button
@@ -326,7 +594,7 @@ export function ChatScreen() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handlePassJob(job.id);
+                                  handlePassJob(job.match_id);
                                 }}
                                 className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-semibold py-2 rounded-full hover:bg-gray-50 transition-colors"
                               >
@@ -335,7 +603,7 @@ export function ChatScreen() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleApplyJob(job.id);
+                                  handleApplyJob(job.match_id);
                                 }}
                                 className="flex-1 bg-[#113a7a] text-white text-sm font-semibold py-2 rounded-full hover:bg-[#0d2b5c] transition-colors"
                               >
@@ -495,7 +763,7 @@ export function ChatScreen() {
             <div className="pt-4 flex gap-3">
               <button
                 onClick={() => {
-                  handlePassJob(selectedJob.id);
+                  handlePassJob(selectedJob.match_id);
                   setSelectedJob(null);
                 }}
                 className="flex-1 bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors"
@@ -504,7 +772,7 @@ export function ChatScreen() {
               </button>
               <button
                 onClick={() => {
-                  handleApplyJob(selectedJob.id);
+                  handleApplyJob(selectedJob.match_id);
                   setSelectedJob(null);
                 }}
                 className="flex-1 bg-[#113a7a] text-white font-semibold py-3 rounded-xl hover:bg-[#0d2b5c] transition-colors"

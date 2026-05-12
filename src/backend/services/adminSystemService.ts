@@ -2,6 +2,8 @@ import db from "../db/connection.ts";
 import { parsePagination, PaginationOptions } from "../utils/pagination.ts";
 import fs from "node:fs";
 
+const AUDIT_SORT_COLUMNS = ["id", "action", "created_at"];
+
 export function getHealth() {
   let dbSize = 0;
   try {
@@ -41,8 +43,10 @@ export function updateConfig(key: string, value: string, adminId: number) {
 export function getAuditLog(
   options: PaginationOptions & { adminId?: number; action?: string }
 ) {
-  const { page, limit, offset, order } = parsePagination(options);
-  const sort = options.sort || "created_at";
+  const { page, limit, offset, order, sort } = parsePagination({
+    ...options,
+    allowedSortColumns: AUDIT_SORT_COLUMNS,
+  });
 
   const conditions: string[] = [];
   const params: any[] = [];

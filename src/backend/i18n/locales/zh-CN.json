@@ -37,6 +37,22 @@
     "updated": "配置已更新",
     "not_found": "配置项未找到"
   },
+  "profile": {
+    "pdf_required": "仅支持 PDF 文件"
+  },
+  "jobs": {
+    "invalid_bulk": "职位列表必须为非空数组"
+  },
+  "feedback": {
+    "missing_fields": "缺少 match_id 或 type",
+    "invalid_type": "无效的反馈类型"
+  },
+  "chat": {
+    "missing_message": "消息不能为空"
+  },
+  "events": {
+    "missing_type": "缺少事件类型"
+  },
   "internal": {
     "server_error": "服务器内部错误"
   }

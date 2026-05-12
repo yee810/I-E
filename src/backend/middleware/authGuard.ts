@@ -1,16 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { ENV } from "../config/env.ts";
+import { verifyToken } from "../utils/auth.ts";
 import db from "../db/connection.ts";
-import crypto from "node:crypto";
 import { AppError } from "../utils/AppError.ts";
-
-function generateToken(userId: number) {
-  const time = Math.floor(Date.now() / 1000 / 3600);
-  return crypto
-    .createHmac("sha256", ENV.JWT_SECRET)
-    .update(`${userId}:${time}`)
-    .digest("hex");
-}
 
 export function authGuard(req: Request, _res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
@@ -25,15 +16,8 @@ export function authGuard(req: Request, _res: Response, next: NextFunction) {
     return;
   }
 
-  const userId =
-    req.headers["x-user-id"] ?? req.query.user_id ?? req.body?.user_id;
-  if (!userId) {
-    next(new AppError("auth.no_user_context", 401));
-    return;
-  }
-
-  const expected = generateToken(Number(userId));
-  if (token !== expected) {
+  const { userId, valid } = verifyToken(token);
+  if (!valid || !userId) {
     next(new AppError("auth.invalid_token", 401));
     return;
   }

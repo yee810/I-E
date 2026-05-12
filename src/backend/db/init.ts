@@ -117,6 +117,10 @@ export function initSchema() {
   `);
 
   safeAddColumn("users", "role", "TEXT NOT NULL DEFAULT 'user'");
+  safeAddColumn("users", "password_salt", "TEXT");
+  safeAddColumn("preferences", "excluded_roles", "TEXT");
+  safeAddColumn("preferences", "excluded_locations", "TEXT");
+  safeAddColumn("conversations", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
 
   const seedConfig = db.prepare(
     "INSERT OR IGNORE INTO system_config (key, value, description) VALUES (?, ?, ?)"

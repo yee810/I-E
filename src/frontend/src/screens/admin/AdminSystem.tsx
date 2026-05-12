@@ -19,8 +19,8 @@ export default function AdminSystem() {
     try {
       const [h, c, a] = await Promise.all([
         adminApi.health(),
-        adminApi.config(),
-        adminApi.auditLog(logPage).catch(() => ({ data: [], totalPages: 1 })),
+        adminApi.listConfig(),
+        adminApi.listAuditLog({ page: logPage }).catch(() => ({ data: [], totalPages: 1 })),
       ]);
       setHealth(h);
       setConfig(c.config || c.data || []);

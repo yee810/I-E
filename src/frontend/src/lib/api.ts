@@ -22,25 +22,64 @@ export const api = {
   health: () => req("GET", "/health"),
   register: (email: string, password: string) => req("POST", "/auth/register", { email, password }),
   login: (email: string, password: string) => req("POST", "/auth/login", { email, password }),
-  getProfile: (user_id: number) => req("GET", `/profiles/me?user_id=${user_id}`),
+  deleteAccount: () => req("DELETE", "/auth/account"),
+  getProfile: () => req("GET", "/profiles/me"),
   updateProfile: (body: any) => req("PUT", "/profiles/me", body),
-  uploadResume: (user_id: number, file: File) => {
+  uploadResume: (file: File) => {
     const form = new FormData();
-    form.append("user_id", String(user_id));
     form.append("file", file);
-    return req("POST", "/profiles/resume-upload", undefined, {
+    const token = localStorage.getItem("token");
+    return fetch(`${API_BASE}/profiles/resume-upload`, {
       method: "POST",
-      headers: {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
     });
   },
-  getPreferences: (user_id: number) => req("GET", `/preferences?user_id=${user_id}`),
+  getPreferences: () => req("GET", "/preferences"),
   savePreferences: (body: any) => req("POST", "/preferences", body),
   getJobs: (limit?: number, offset?: number) => req("GET", `/jobs?limit=${limit ?? 50}&offset=${offset ?? 0}`),
   bulkImportJobs: (jobs: any[]) => req("POST", "/jobs/bulk", { jobs }),
-  getRecommendations: (user_id: number, limit?: number) => req("GET", `/matching/recommendations?user_id=${user_id}&limit=${limit ?? 10}`),
-  runMatching: (user_id: number, limit?: number) => req("POST", "/matching/run", { user_id, limit }),
+  getRecommendations: (limit?: number) => req("GET", `/matching/recommendations?limit=${limit ?? 10}`),
+  runMatching: (limit?: number) => req("POST", "/matching/run", { limit }),
+  streamMatching: (limit: number, onStep: (step: any) => void): Promise<any[]> => {
+    const token = localStorage.getItem("token");
+    return new Promise((resolve, reject) => {
+      fetch(`${API_BASE}/matching/stream?limit=${limit}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then(res => {
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const results: any[] = [];
+        (function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) { resolve(results); return; }
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop()!;
+            for (const part of parts) {
+              const raw = part.replace(/^data: /, "");
+              if (!raw) continue;
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed.type === "result") { results.push(...(parsed.recommendations || [])); }
+                else { onStep(parsed); }
+              } catch {}
+            }
+            read();
+          }).catch(reject);
+        })();
+      }).catch(reject);
+    });
+  },
   sendFeedback: (match_id: number, type: string, comment?: string) => req("POST", "/feedback", { match_id, type, comment }),
-  chat: (user_id: number, message: string) => req("POST", "/chat", { user_id, message }),
+  chat: (message: string) => req("POST", "/chat", { message }),
+  getChatHistory: () => req("GET", "/chat"),
+  getMyMatches: (status?: string) => req("GET", `/matches/me${status ? `?status=${status}` : ""}`),
+  updateMatchStatus: (match_id: number, status: string) => req("PATCH", `/matches/${match_id}`, { status }),
   trackEvent: (event_type: string, user_id?: number, payload?: any) => req("POST", "/events", { event_type, user_id, payload }),
 };
